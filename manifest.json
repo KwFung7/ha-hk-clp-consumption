@@ -1,0 +1,12 @@
+{
+  "domain": "hk_clp_consumption",
+  "name": "HK CLP Consumption",
+  "codeowners": [
+    "@KwFung7"
+  ],
+  "dependencies": [],
+  "documentation": "",
+  "requirements": [],
+  "config_flow": true,
+  "version": "0.0.1"
+}
