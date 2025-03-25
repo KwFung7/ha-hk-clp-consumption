@@ -71,7 +71,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # Step 2: Fetch electricity consumption using the token
                 _LOGGER.info("Firing call to CLP consumption API...")
                 headers = {"authorization": token}
-                async with session.get(consumption_endpoint, headers=headers) as consumption_response:
+                consumption_payload = {
+                    "ca": username,
+                    "fromDate": "20250301000000",
+                    "toDate": "20250401000000",
+                    "mode": "Daily",
+                    "type": "Unit"
+                }
+                async with session.post(consumption_endpoint, headers=headers, json=consumption_payload) as consumption_response:
                     if consumption_response.status == 200:
                         consumption_data = await consumption_response.json()
                         res_data = consumption_data.get("data", {})
