@@ -1,13 +1,21 @@
 import logging
 import aiohttp
+from datetime import datetime, timezone
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
-from .const import DOMAIN, CONF_LOGIN_ENDPOINT, CONF_CONSUMPTION_ENDPOINT
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, UnitOfEnergy
+from .statistics import insert_statistics, get_last_statistics
+from .const import (
+    DOMAIN,
+    CONF_LOGIN_ENDPOINT,
+    CONF_CONSUMPTION_ENDPOINT,
+    CONF_STAT_LABEL_ELECTRICITY_USAGE,
+    STAT_ELECTRICITY_USAGE,
+)
 from .hk_clp import HkClp
-from .util import format_date_range, extract_consumption_data
+from .util import format_date_range, extract_consumption_data, get_statistic_id
 import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,20 +64,59 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     return False
 
                 # Step 3: Extract and process consumption data
-                extract_consumption_data(_hk_clp.consumption_data)
+                usages = extract_consumption_data(_hk_clp.consumption_data)
+                if not usages:
+                    _LOGGER.error("No valid consumption data found in API response")
+                    return False
 
+                # Step 4: Insert statistic if data doesn't exist
+                statistic_id = get_statistic_id(entry.entry_id, STAT_ELECTRICITY_USAGE)
+
+                try:
+                    last_stat = await get_last_statistics(hass, statistic_id)
+                    if last_stat:
+                        last_stat_date = datetime.fromtimestamp(
+                            last_stat[statistic_id][-1]["start"],
+                            timezone.utc,
+                        )
+                        first_new_stat_date = usages[0].date
+
+                        if first_new_stat_date <= last_stat_date:
+                            _LOGGER.info(
+                                "Skipping statistics insertion - data exists until %s",
+                                last_stat_date
+                            )
+                            return True
+
+                    await insert_statistics(
+                        hass=hass,
+                        statistic_id=statistic_id,
+                        name=entry.data.get(
+                            CONF_STAT_LABEL_ELECTRICITY_USAGE,
+                            f"Electricity Usage ({entry.data.get(CONF_USERNAME)})"
+                        ),
+                        usages=usages,
+                        unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                    )
+                    return True
+
+                except Exception as err:
+                    _LOGGER.error("Failed to insert statistics: %s", err)
+                    return False
+
+                _LOGGER.info("Successfully completed all setup steps")
                 return True
 
             except aiohttp.ClientError as err:
                 _LOGGER.error(f"Network error during API calls: {err}")
                 return False
             except Exception as err:
-                _LOGGER.error(f"Error during API calls: {err}")
+                _LOGGER.error("Unexpected error during API calls: %s", err)
                 return False
 
     except KeyError as err:
-        _LOGGER.error(f"Missing required configuration key: {err}")
+        _LOGGER.error("Missing required configuration key: %s. Please check your configuration.", err)
         return False
     except Exception as err:
-        _LOGGER.error(f"Unexpected error during setup: {err}")
+        _LOGGER.error("Unexpected error during component setup: %s", err)
         return False
