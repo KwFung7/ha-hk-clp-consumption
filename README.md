@@ -5,7 +5,7 @@ A custom component for Home Assistant that integrates with Hong Kong CLP to fetc
 ![energy-dashboard](assets/energy-dashboard.png)
 
 ### Original dashboard from CLP 
-![clp-dashboard](assets/clp-dashboard.png)
+<img src="assets/clp-dashboard.png" width="400" />
 
 ## Features
 
