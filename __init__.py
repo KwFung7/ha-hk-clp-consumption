@@ -73,21 +73,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 statistic_id = get_statistic_id(entry.entry_id, STAT_ELECTRICITY_USAGE)
 
                 try:
-                    last_stat = await get_last_statistics(hass, statistic_id)
-                    if last_stat:
-                        last_stat_date = datetime.fromtimestamp(
-                            last_stat[statistic_id][-1]["start"],
-                            timezone.utc,
-                        )
-                        first_new_stat_date = usages[0].date
-
-                        if first_new_stat_date <= last_stat_date:
-                            _LOGGER.info(
-                                "Skipping statistics insertion - data exists until %s",
-                                last_stat_date
-                            )
-                            return True
-
                     await insert_statistics(
                         hass=hass,
                         statistic_id=statistic_id,

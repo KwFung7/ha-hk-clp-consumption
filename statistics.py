@@ -45,10 +45,6 @@ async def insert_statistics(
         _LOGGER.debug("No data in `usages`, skipping the process")
         return
 
-    last_stat = await get_last_statistics(hass, statistic_id)
-
-    cumulative_sum = 0 if not last_stat else last_stat[statistic_id].pop()["sum"]
-
     async_add_external_statistics(
         hass,
         metadata=StatisticMetaData(
