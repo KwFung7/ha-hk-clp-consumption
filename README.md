@@ -17,7 +17,7 @@ A custom component for Home Assistant that integrates with Hong Kong CLP to fetc
 
 ## Installation
 
-1. Copy the all files within `custom_component` directory to your Home Assistant's `config/custom_components/hk_clp_consumption` directory.
+1. Copy the all files within `custom_component/hk_clp_consumption` directory to your Home Assistant's `config/custom_components/hk_clp_consumption` directory.
 2. Restart Home Assistant.
 
 ## Configuration
