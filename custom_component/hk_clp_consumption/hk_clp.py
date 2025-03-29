@@ -6,11 +6,6 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-class Usage(TypedDict):
-    """Typed Dict for the daily usage"""
-    date: datetime
-    usage: float
-
 class HkClp:
     """Wrapper for API calls"""
 

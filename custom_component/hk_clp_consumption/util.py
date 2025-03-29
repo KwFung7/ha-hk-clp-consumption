@@ -3,9 +3,15 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import *
 from typing import Dict, Any, Optional, List
 from .const import DOMAIN
-from .hk_clp import Usage
+from dataclasses import dataclass
 
 _LOGGER = logging.getLogger(__name__)
+
+@dataclass
+class Usage:
+    """Data class for storing electricity usage data."""
+    date: datetime
+    usage: float
 
 def format_date_range() -> tuple[str, str]:
     """Calculate and format date range for API calls."""
@@ -17,70 +23,77 @@ def format_date_range() -> tuple[str, str]:
     )
 
 def parse_date(date_str: str) -> datetime:
-    """Parse date string from API into datetime object.
+    """Parse date string from API response.
     
     Args:
-        date_str: Date string from API (format: YYYYMMDDHHmmss)
+        date_str: Date string in YYYYMMDDHHmmss format
         
     Returns:
-        datetime object
+        datetime: Parsed datetime object
+        
+    Raises:
+        ValueError: If date string cannot be parsed
     """
     try:
-        # The API returns dates in format YYYYMMDDHHmmss
         return datetime.strptime(date_str, "%Y%m%d%H%M%S")
     except ValueError as err:
         _LOGGER.error("Failed to parse date string '%s': %s", date_str, err)
         raise
 
 def extract_consumption_data(data: Dict[str, Any]) -> List[Usage]:
-    """Extract and log consumption data.
+    """Extract consumption data from API response.
     
     Args:
-        data: Dictionary containing consumption data from the API.
+        data: API response data containing consumption records
         
     Returns:
-        List of Usage objects containing the consumption data.
+        List[Usage]: List of Usage objects containing date and consumption values
+        
+    Raises:
+        ValueError: If data is invalid or missing required fields
     """
     usages: List[Usage] = []
     
     try:
         results = data.get("results", [])
-        if not isinstance(results, list):
-            _LOGGER.error("Invalid results format: expected list")
+        if not results:
+            _LOGGER.warning("No consumption records found in API response")
             return usages
-
-        for daily_data in results:
-            if not isinstance(daily_data, dict):
-                _LOGGER.error("Invalid daily data format: expected dict")
-                continue
-
-            kwh_total = daily_data.get("kwhTotal")
-            start_time = daily_data.get("startDate")
-            end_time = daily_data.get("expireDate")
-            temperature = daily_data.get("temp")
-
-            if all(record is not None for record in [kwh_total, start_time, end_time, temperature]):
-                _LOGGER.info(
-                    "Daily consumption: %.2f kWh, Period: %s to %s, Temperature: %.1f°C",
-                    float(kwh_total),
-                    start_time,
-                    end_time,
-                    float(temperature)
-                )
-
-                # Create Usage object for this record
-                usage = Usage(
+            
+        for record in results:
+            try:
+                start_time = record.get("startDate")
+                if not start_time:
+                    _LOGGER.warning("Record missing startDate field: %s", record)
+                    continue
+                    
+                kwh_total = record.get("kwhTotal")
+                if not kwh_total:
+                    _LOGGER.warning("Record missing kwhTotal field: %s", record)
+                    continue
+                    
+                try:
+                    usage_value = float(kwh_total)
+                except ValueError:
+                    _LOGGER.warning("Invalid kwhTotal value '%s' in record: %s", kwh_total, record)
+                    continue
+                    
+                usages.append(Usage(
                     date=parse_date(start_time),
-                    usage=float(kwh_total),
-                )
-                usages.append(usage)
-            else:
-                _LOGGER.warning("Incomplete daily data: %s", daily_data)
-
+                    usage=usage_value
+                ))
+            except Exception as err:
+                _LOGGER.warning("Failed to process record %s: %s", record, err)
+                continue
+                
+        if not usages:
+            _LOGGER.warning("No valid consumption records found in API response")
+            
         return usages
+        
     except Exception as err:
-        _LOGGER.error("Error processing consumption data: %s", err)
-        return usages
+        _LOGGER.error("Failed to extract consumption data: %s", err)
+        raise
 
 def get_statistic_id(entry_id: str, identifier: str) -> str:
     """Format the statistic id.

@@ -5,7 +5,7 @@
     "@KwFung7"
   ],
   "dependencies": [],
-  "documentation": "",
+  "documentation": "https://github.com/KwFung7/ha-hk-clp-consumption",
   "requirements": [],
   "config_flow": true,
   "version": "0.0.1"

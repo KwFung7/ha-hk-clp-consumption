@@ -6,7 +6,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, UnitOfEnergy
-from .statistics import insert_statistics, get_last_statistics
 from .const import (
     DOMAIN,
     CONF_LOGIN_ENDPOINT,
@@ -16,6 +15,7 @@ from .const import (
 )
 from .hk_clp import HkClp
 from .util import format_date_range, extract_consumption_data, get_statistic_id
+from .statistics import insert_statistics
 import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,24 +69,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.error("No valid consumption data found in API response")
                     return False
 
-                # Step 4: Insert statistic if data doesn't exist
+                # Step 4: Check if we need to insert new statistics
                 statistic_id = get_statistic_id(entry.entry_id, STAT_ELECTRICITY_USAGE)
+            
+                # Step 5: Insert new statistics
+                success = await insert_statistics(
+                    hass=hass,
+                    entry_id=entry.entry_id,
+                    name=entry.data.get(
+                        CONF_STAT_LABEL_ELECTRICITY_USAGE,
+                        f"Electricity Usage ({entry.data.get(CONF_USERNAME)})"
+                    ),
+                    usages=usages,
+                    unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                )
 
-                try:
-                    await insert_statistics(
-                        hass=hass,
-                        statistic_id=statistic_id,
-                        name=entry.data.get(
-                            CONF_STAT_LABEL_ELECTRICITY_USAGE,
-                            f"Electricity Usage ({entry.data.get(CONF_USERNAME)})"
-                        ),
-                        usages=usages,
-                        unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                if not success:
+                    _LOGGER.error(
+                        "Failed to insert statistics for user %s",
+                        entry.data[CONF_USERNAME]
                     )
-                    return True
-
-                except Exception as err:
-                    _LOGGER.error("Failed to insert statistics: %s", err)
                     return False
 
                 _LOGGER.info("Successfully completed all setup steps")

@@ -1,68 +1,83 @@
-"""Util methods for wrapping HA statistics related logic"""
-
 import logging
-from datetime import timezone
-from typing import List
-
-from homeassistant.components.recorder.models import StatisticMetaData, StatisticData
-from homeassistant.components.recorder.statistics import async_add_external_statistics, \
-    get_last_statistics as get_last_statistics_lib
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.recorder import get_instance
-
-from .const import DOMAIN
-from .hk_clp import Usage
+from datetime import datetime
+from typing import List, Optional
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
+    StatisticData,
+    StatisticMetaData,
+)
+from homeassistant.const import UnitOfEnergy
+from .const import DOMAIN, STAT_ELECTRICITY_USAGE
+from .util import Usage, get_statistic_id
 
 _LOGGER = logging.getLogger(__name__)
 
-
-async def get_last_statistics(
-        hass: HomeAssistant,
-        statistic_id: str,
-):
-    """Return the last statistics of a specific statistic_id"""
-
-    return await get_instance(hass).async_add_executor_job(
-        get_last_statistics_lib,
-        hass,
-        1,
-        statistic_id,
-        False,
-        {"sum"},
-    )
-
-
 async def insert_statistics(
-        hass: HomeAssistant,
-        statistic_id: str,
-        name: str,
-        usages: List[Usage],
-        unit_of_measurement: str,
-):
-    """Insert a list of records to a specific statistic_id"""
+    hass,
+    entry_id: str,
+    name: str,
+    usages: List[Usage],
+    unit_of_measurement: str = UnitOfEnergy.KILO_WATT_HOUR,
+) -> bool:
+    """Insert consumption statistics into Home Assistant.
+    
+    Args:
+        hass: Home Assistant instance
+        entry_id: The config entry ID
+        name: Display name for the statistics
+        usages: List of Usage objects containing consumption data
+        unit_of_measurement: Unit of measurement (default: kWh)
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        if not usages:
+            _LOGGER.warning("No usage data to insert")
+            return False
 
-    if not usages:
-        _LOGGER.debug("No data in `usages`, skipping the process")
-        return
+        # Generate unique statistic ID
+        statistic_id = get_statistic_id(entry_id, STAT_ELECTRICITY_USAGE)
 
-    async_add_external_statistics(
-        hass,
-        metadata=StatisticMetaData(
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            name=name,
-            unit_of_measurement=unit_of_measurement,
+        # Prepare statistics data
+        statistics_data = []
+        for usage in usages:
+            if not isinstance(usage, Usage):
+                _LOGGER.warning("Invalid usage object: %s", usage)
+                continue
+                
+            statistics_data.append(
+                StatisticData(
+                    start=usage.date,
+                    state=usage.usage,
+                    sum=usage.usage,
+                )
+            )
+
+        if not statistics_data:
+            _LOGGER.warning("No valid statistics data to insert")
+            return False
+
+        # Create metadata for the statistics
+        metadata = StatisticMetaData(
             has_mean=False,
             has_sum=True,
-        ),
-        statistics=[
-            StatisticData(
-                start=usage["date"].astimezone(timezone.utc),
-                state=usage["usage"],
-                sum=(cumulative_sum := cumulative_sum + usage["usage"]),
-            )
-            for usage in usages if usage["usage"]
-        ],
-    )
+            name=name,
+            source=DOMAIN,
+            statistic_id=statistic_id,
+            unit_of_measurement=unit_of_measurement,
+        )
 
-    _LOGGER.debug("Inserted data for %s", statistic_id)
+        # Add the statistics
+        async_add_external_statistics(hass, metadata, statistics_data)
+        
+        _LOGGER.info(
+            "Successfully added consumption statistics from %s to %s",
+            statistics_data[0].start,
+            statistics_data[-1].start
+        )
+        return True
+
+    except Exception as err:
+        _LOGGER.error("Failed to insert statistics: %s", err)
+        return False 
