@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
@@ -41,6 +41,7 @@ async def insert_statistics(
 
         # Prepare statistics data
         statistics_data = []
+        cumulative_sum = 0
         for usage in usages:
             if not isinstance(usage, Usage):
                 _LOGGER.warning("Invalid usage object: %s", usage)
@@ -48,9 +49,9 @@ async def insert_statistics(
                 
             statistics_data.append(
                 StatisticData(
-                    start=usage.date,
+                    start=usage.date.astimezone(timezone.utc),
                     state=usage.usage,
-                    sum=usage.usage,
+                    sum=(cumulative_sum := cumulative_sum + usage.usage),
                 )
             )
 
@@ -73,8 +74,8 @@ async def insert_statistics(
         
         _LOGGER.info(
             "Successfully added consumption statistics from %s to %s",
-            statistics_data[0].start,
-            statistics_data[-1].start
+            usages[0].date,
+            usages[-1].date
         )
         return True
 
