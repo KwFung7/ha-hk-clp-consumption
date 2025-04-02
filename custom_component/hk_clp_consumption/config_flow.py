@@ -5,11 +5,13 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlowResult, ConfigFlow
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, CONF_TRIGGER_TIME
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorType,
     TextSelectorConfig,
+    TimeSelector,
+    TimeSelectorConfig
 )
 
 from .const import DOMAIN, CONF_LOGIN_ENDPOINT, CONF_CONSUMPTION_ENDPOINT
@@ -93,6 +95,13 @@ class HkClpConsumptionConfigFlow(ConfigFlow, domain=DOMAIN):
                         type=TextSelectorType.TEXT,
                         autocomplete="off"
                     )
+                ),
+                vol.Required(
+                    CONF_TRIGGER_TIME,
+                    description="Daily schedule time",
+                    default="23:30:00"
+                ): TimeSelector(
+                    TimeSelectorConfig(),
                 )
             }),
             errors=errors,

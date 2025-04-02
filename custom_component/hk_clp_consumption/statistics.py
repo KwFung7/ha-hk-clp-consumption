@@ -95,7 +95,7 @@ async def insert_statistics(
     try:
         if not usages:
             _LOGGER.warning("No usage data to insert")
-            return False
+            return True
 
         # Generate unique statistic ID
         statistic_id = get_statistic_id(entry_id, STAT_ELECTRICITY_USAGE)
@@ -149,7 +149,7 @@ async def insert_statistics(
 
         if not statistics_data:
             _LOGGER.warning("No valid statistics data to insert")
-            return False
+            return True
 
         # Create metadata for the statistics
         metadata = StatisticMetaData(
