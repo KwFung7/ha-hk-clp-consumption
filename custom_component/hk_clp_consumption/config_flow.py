@@ -99,7 +99,7 @@ class HkClpConsumptionConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_TRIGGER_TIME,
                     description="Daily schedule time",
-                    default="23:30:00"
+                    default="03:00:00"
                 ): TimeSelector(
                     TimeSelectorConfig(),
                 )
