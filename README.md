@@ -12,8 +12,9 @@ A custom component for Home Assistant that integrates with Hong Kong CLP to fetc
 - Fetches daily electricity consumption data from CLP
 - Displays historical consumption data in Home Assistant
 - Supports multiple CLP accounts
-- Automatic data updates
+- Automatic data updates via configurable scheduler
 - Secure credential handling
+
 
 ## Installation
 
@@ -32,6 +33,7 @@ A custom component for Home Assistant that integrates with Hong Kong CLP to fetc
    - Password (Must be hash, you could find it in CLP login response)
    - Login Endpoint (default: https://api.clp.com.hk/ts1/ms/profile/accountManagement/loginByPassword)
    - Consumption Endpoint (default: https://api.clp.com.hk/ts1/ms/consumption/history)
+   - Trigger Time (default: 03:00:00) - The time when the data will be fetched daily
 
 ### Manual Configuration
 
@@ -44,14 +46,16 @@ hk_clp_consumption:
     login_endpoint: https://api.clp.com.hk/ts1/ms/profile/accountManagement/loginByPassword
     consumption_endpoint: https://api.clp.com.hk/ts1/ms/consumption/history
     stat_label_electricity_usage: "electricity_usage_label"
+    trigger_time: "00:00:00"  # Format: HH:MM:SS
 ```
 
 ## Usage
 
 After configuration, the component will:
-1. Automatically fetch your electricity consumption data
+1. Automatically fetch your electricity consumption data at the specified trigger time
 2. Display the data in Home Assistant's statistics
-3. Update the data during HASS startup
+3. Track the last successful fetch and any errors
+4. Update the data daily without requiring Home Assistant restarts
 
 You can view your consumption data in:
 - Home Assistant's Energy Dashboard
@@ -66,6 +70,8 @@ If you encounter issues:
 2. Verify your CLP credentials are correct
 3. Ensure your Home Assistant instance has internet access
 4. Check if the CLP API endpoints are accessible
+5. Verify the trigger time is set correctly
+6. Check the last successful fetch time and any error messages in the component state
 
 ## Development
 
@@ -78,6 +84,7 @@ custom_components/hk_clp_consumption/
 ├── const.py
 ├── config_flow.py
 ├── hk_clp.py
+├── statistics.py
 └── util.py
 ```
 
